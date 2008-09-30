@@ -216,8 +216,8 @@ class SDLEntry {
         if(entryCoordinates.size() != 1) {
             throw new SDLParseException(this, "Point can have only one coordinate");
         }
-
-        return geometryFactory.createMultiPoint(new Coordinate[]{entryCoordinates.get(0)});
+        //return geometryFactory.createMultiPoint(new Coordinate[]{entryCoordinates.get(0)});
+        return geometryFactory.createPoint(entryCoordinates.get(0));
     } 
 
     private Geometry createLineGeometry(List<Coordinate> entryCoordinates) throws SDLParseException {
@@ -243,7 +243,18 @@ class SDLEntry {
             }
         } while(coordinatesIterator.hasNext());
 
-        return geometryFactory.createMultiLineString((LineString[])lineStrings.toArray(new LineString[] {}));
+        Geometry g = null;
+        if (lineStrings.size()>1){
+            g = geometryFactory.createMultiLineString((LineString[])lineStrings.toArray(new LineString[] {}));
+        }
+        else if(lineStrings.size()==1){
+            g = geometryFactory.createLineString(lineStrings.get(0).getCoordinates());
+        }
+        else{
+            // TODO
+            System.out.println("FOUT! linestrings[] < 1 createLineGeometry");
+        }
+        return g;
     } 
     
     /* Create a single polyline from a SDL entry which may contain multiple
@@ -359,7 +370,22 @@ class SDLEntry {
         } while(index < size);
         
         List<Polygon> polygons = foldHoles(rings);
-        return geometryFactory.createMultiPolygon(GeometryFactory.toPolygonArray(polygons));      
+        Geometry g = null;
+        if(polygons==null)return null;
+        if (polygons.size()>1){
+            g = geometryFactory.createMultiPolygon(GeometryFactory.toPolygonArray(polygons));      
+        }
+        else if (polygons.size()==1){
+            LinearRing[] interiorRings = new LinearRing[polygons.get(0).getNumInteriorRing()];
+            for (int i = 0; i < polygons.get(0).getNumInteriorRing(); i++) {
+                interiorRings[i] = (LinearRing)polygons.get(0).getInteriorRingN(i);
+            }
+            g = geometryFactory.createPolygon((LinearRing)polygons.get(0).getExteriorRing(), interiorRings);      
+        }
+        else{
+            System.out.println("FOUT! polygons[] < 1 createPolygonGeometry");
+        }
+        return g;
     }
     
     /**

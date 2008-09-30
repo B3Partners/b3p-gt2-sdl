@@ -6,9 +6,7 @@ package nl.b3p.geotools.data.sdl;
 
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
-import com.vividsolutions.jts.geom.MultiLineString;
 import com.vividsolutions.jts.geom.MultiPoint;
-import com.vividsolutions.jts.geom.MultiPolygon;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -32,6 +30,8 @@ import org.geotools.referencing.ReferencingFactoryFinder;
 import org.opengis.referencing.crs.CRSFactory;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.apache.commons.io.input.CountingInputStream;
+import org.geotools.referencing.CRS;
+
 
 /**
  * @author Matthijs Laan, B3Partners
@@ -119,24 +119,32 @@ public class SDLFeatureReader implements FeatureReader {
             String wkt = csMetadata[0];
             try {
                 /* parse WKT */
-		CRSFactory crsFactory = ReferencingFactoryFinder.getCRSFactory(null);
-		crs = crsFactory.createFromWKT(wkt);
+                CRSFactory crsFactory = ReferencingFactoryFinder.getCRSFactory(null);
+                crs = crsFactory.createFromWKT(wkt);
             } catch(Exception e) {
                 throw new DataSourceException("Error parsing CoordinateSystem WKT: \"" + wkt + "\"");
             }
-        }
+        }/*
+        else{
+            // TODO TEMP: default to 28992 for now better to add a default crs-parameter to DataStoreFactory init-map
+            // assuming you have gt-epsg-hsql or gt2-epsg-wkt on your classpath
+            try {
+                crs = CRS.decode("EPSG:28992");
+            } catch (Exception e) {
+                throw new DataSourceException("Error parsing CoordinateSystem!");
+            }
+        }*/
 
         try {
-            /* GeometricAttributeType creates the GeometryFactory */
-            GeometricAttributeType pointType = new GeometricAttributeType("the_geom_point", MultiPoint.class, true, null, crs, null);
-            GeometricAttributeType lineType = new GeometricAttributeType("the_geom_line", MultiLineString.class, true, null, crs, null);
-            GeometricAttributeType polygonType = new GeometricAttributeType("the_geom_polygon", MultiPolygon.class, true, null, crs, null);
-            gf = pointType.getGeometryFactory(); /* XXX does it matter which GF is used? All have the same CRS... */
+            GeometricAttributeType geometryType = new GeometricAttributeType("the_geom", Geometry.class, true, null, crs, null);
+            gf = geometryType.getGeometryFactory(); /* XXX does it matter which GF is used? All have the same CRS... */
+            
             ft = FeatureTypes.newFeatureType(
                     new AttributeType[] {
-                        pointType,
-                        lineType,
-                        polygonType,
+                        //pointType,
+                        //lineType,
+                        //polygonType,
+                        geometryType,
                         AttributeTypeFactory.newAttributeType("name", String.class),
                         AttributeTypeFactory.newAttributeType("key", String.class),
                         AttributeTypeFactory.newAttributeType("urlLink", String.class),
@@ -182,19 +190,21 @@ public class SDLFeatureReader implements FeatureReader {
         try {
             SDLEntry entry = new SDLEntry(lnr, gf);
             /* XXX use key as featureID? */
-            MultiPoint point = null;
-            MultiLineString line = null;
-            MultiPolygon polygon = null;
+            //MultiPoint point = null;
+            //MultiLineString line = null;
+            //MultiPolygon polygon = null;
             Geometry g = entry.getGeometry();
-            switch(entry.getType()) {
-                case SDLEntry.TYPE_POINT: point = (MultiPoint)g; break;
-                case SDLEntry.TYPE_LINE: line = (MultiLineString)g; break;
-                case SDLEntry.TYPE_POLYGON: polygon = (MultiPolygon)g; break;
-            }
+            //switch(entry.getType()) {
+                //case SDLEntry.TYPE_POINT: point = (MultiPoint)g; break;
+                //case SDLEntry.TYPE_LINE: line = (MultiLineString)g; break;
+                //case SDLEntry.TYPE_POLYGON: polygon = (MultiPolygon)g; break;   
+            //}
+
             Feature f = ft.create(new Object[] {
-                point, 
-                line, 
-                polygon, 
+                //point, 
+                //line, 
+                //polygon,
+                g,
                 entry.getName(), 
                 entry.getKey(), 
                 entry.getUrlLink(),
