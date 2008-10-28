@@ -142,7 +142,7 @@ public class SDLFeatureReader implements FeatureReader {
                         AttributeTypeFactory.newAttributeType("key", String.class),
                         AttributeTypeFactory.newAttributeType("urlLink", String.class),
                         AttributeTypeFactory.newAttributeType("entryLineNumber", Integer.class),
-                        AttributeTypeFactory.newAttributeType("parseError", Boolean.class),
+                        AttributeTypeFactory.newAttributeType("parseError", Integer.class),
                         AttributeTypeFactory.newAttributeType("error", String.class)
                     }, typeName);
         } catch (Exception e) {
@@ -190,7 +190,7 @@ public class SDLFeatureReader implements FeatureReader {
                         entry.getKey(),
                         entry.getUrlLink(),
                         new Integer(entry.getStartingLineNumber()),
-                        new Boolean(entry.isParseError()),
+                        new Integer(entry.isParseError()?1:0),
                         entry.getErrorDescription()
                     });
             return f;
