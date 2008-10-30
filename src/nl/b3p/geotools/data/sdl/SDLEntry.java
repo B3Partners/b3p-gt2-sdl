@@ -1,7 +1,6 @@
 /*
  * $Id: SDLEntry.java 9066 2008-09-30 15:01:19Z Richard $
  */
-
 package nl.b3p.geotools.data.sdl;
 
 import com.vividsolutions.jts.algorithm.CGAlgorithms;
@@ -19,6 +18,8 @@ import java.io.LineNumberReader;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 /**
  * Represents a single feature from a SDL file, which can be a point, polyline(s)
@@ -30,10 +31,12 @@ import java.util.List;
  * @author Matthijs Laan, B3Partners
  */
 class SDLEntry {
+
+    private static final Log log = LogFactory.getLog(SDLEntry.class);
+    
     public static final int TYPE_POINT = 0;
     public static final int TYPE_LINE = 1;
     public static final int TYPE_POLYGON = 2;
-
     private final int startingLineNumber;
     private final int type;
     private final String name;
@@ -41,29 +44,27 @@ class SDLEntry {
     private final String urlLink;
     private boolean parseError = false;
     private String errorDescription = null;
-    
     private final GeometryFactory geometryFactory;
-    
     private final Geometry geometry;
-    
+
     public SDLEntry(LineNumberReader input, GeometryFactory geometryFactory) throws IOException, SDLParseException {
         String header;
-        
+
         /* skip comments and empty lines */
         do {
             header = input.readLine();
-            if(header == null) {
+            if (header == null) {
                 throw new EOFException();
             }
-        } while(header.length() == 0 || header.charAt(0) == ';');
-        
+        } while (header.length() == 0 || header.charAt(0) == ';');
+
         /* the current line number is the line of the header which has already
          * been read
          */
         this.startingLineNumber = input.getLineNumber();
 
         this.geometryFactory = geometryFactory;
-        
+
         type = getEntryType(input, header);
 
         StringBuffer nameBuf = new StringBuffer(), keyBuf = new StringBuffer(), urlLinkBuf = new StringBuffer();
@@ -72,61 +73,65 @@ class SDLEntry {
             pos = readQuotedString(header, pos, nameBuf);
             pos = readQuotedString(header, pos, keyBuf);
             pos = readQuotedString(header, pos, urlLinkBuf);
-        } catch(IndexOutOfBoundsException e) {
+        } catch (IndexOutOfBoundsException e) {
             throw new SDLParseException(this, "invalid entry header");
         }
         int numPts = -1;
         try {
-            numPts = Integer.parseInt(header.substring(pos+1)); /* skip last ',' */
-        } catch(Exception e) {
+            numPts = Integer.parseInt(header.substring(pos + 1)); /* skip last ',' */
+        } catch (Exception e) {
             throw new SDLParseException(this, "invalid entry header: can't parse NumPts");
         }
-        
+
         name = nameBuf.toString();
         key = keyBuf.toString();
         urlLink = urlLinkBuf.toString();
-        
+
         /* List of coordinates in order of appearance in the SDL entry. These 
          * coordinates may represent a point, polyline(s) or polygon(s) and may
          * contain a separator coordinate.
          * 
          */
         List<Coordinate> entryCoordinates = new ArrayList<Coordinate>();
-        for(int i = 0; i < numPts; i++) {
+        for (int i = 0; i < numPts; i++) {
             try {
                 entryCoordinates.add(parseCoordinate(input.readLine()));
-            } catch(NumberFormatException nfe) {
+            } catch (NumberFormatException nfe) {
                 throw new SDLParseException(input, "error parsing number: " + nfe.getMessage());
-            } catch(Exception ioe) {
+            } catch (Exception ioe) {
                 throw new SDLParseException(input, ioe.getMessage());
             }
-        }        
+        }
 
-        geometry = createGeometry(entryCoordinates);     
+        geometry = createGeometry(entryCoordinates);
     }
 
     private static int getEntryType(LineNumberReader lnr, String header) throws SDLParseException {
-        if(header == null || header.length() == 0) {
+        if (header == null || header.length() == 0) {
             throw new SDLParseException(lnr, "Expected header, found empty line!");
         }
         char entryType = header.charAt(0);
-        switch(entryType) {
-            case 'M': return TYPE_POINT;
-            case 'P': return TYPE_POLYGON; 
-            case 'L': return TYPE_LINE; 
-            default: throw new SDLParseException(lnr, "Unkown entry type (expected P, L or M): " + entryType);
-        }        
+        switch (entryType) {
+            case 'M':
+                return TYPE_POINT;
+            case 'P':
+                return TYPE_POLYGON;
+            case 'L':
+                return TYPE_LINE;
+            default:
+                throw new SDLParseException(lnr, "Unkown entry type (expected P, L or M): " + entryType);
+        }
     }
 
     public int getType() {
         return type;
     }
-        
+
     private int readQuotedString(String s, int pos, StringBuffer output) throws IndexOutOfBoundsException, SDLParseException {
-        if(s.charAt(pos) == ',') {
+        if (s.charAt(pos) == ',') {
             ++pos;
         }
-        if(s.charAt(pos++) != '"') {
+        if (s.charAt(pos++) != '"') {
             throw new SDLParseException(this, "invalid entry header");
         }
         int length = s.length();
@@ -134,12 +139,12 @@ class SDLEntry {
          * must always end with a quote. This method may throw an
          * IndexOutOfBoundsException if there is no end quote
          */
-        for(;;) {
+        for (;;) {
             char c = s.charAt(pos++);
-            if(c == '"') {
+            if (c == '"') {
                 /* check for stuffed double quote */
-                if(pos < length) {
-                    if(s.charAt(pos) == '"') {
+                if (pos < length) {
+                    if (s.charAt(pos) == '"') {
                         output.append('"');
                         pos++;
                         continue;
@@ -152,73 +157,76 @@ class SDLEntry {
         }
         return pos;
     }
-    
+
     private Coordinate parseCoordinate(String line) throws SDLParseException {
-        if(line == null || line.trim().length() == 0) {
+        if (line == null || line.trim().length() == 0) {
             throw new SDLParseException(this, "Unexpected end of input");
         }
         String[] coords = line.split(",");
         /* Y first, then X */
         return new Coordinate(Double.parseDouble(coords[1]), Double.parseDouble(coords[0]));
     }
-    
+
     public int getStartingLineNumber() {
         return startingLineNumber;
     }
-    
+
     public String getName() {
         return name;
     }
-    
+
     public String getKey() {
         return key;
     }
-    
+
     public String getUrlLink() {
         return urlLink;
     }
-    
+
     public Geometry getGeometry() {
         return geometry;
     }
-    
+
     public boolean isParseError() {
         return parseError;
     }
-    
+
     public String getErrorDescription() {
         return errorDescription;
     }
-    
+
     private Geometry createGeometry(List<Coordinate> entryCoordinates) throws SDLParseException {
-        if(entryCoordinates.isEmpty()) {
-            return new GeometryCollection(new Geometry[] {}, geometryFactory);
-        } 
+        if (entryCoordinates.isEmpty()) {
+            return new GeometryCollection(new Geometry[]{}, geometryFactory);
+        }
 
         try {
-            switch(type) {
-                case TYPE_POINT: return createPointGeometry(entryCoordinates);
-                case TYPE_LINE: return createLineGeometry(entryCoordinates);
-                case TYPE_POLYGON: return createPolygonGeometry(entryCoordinates);
-                default: throw new IllegalStateException();
+            switch (type) {
+                case TYPE_POINT:
+                    return createPointGeometry(entryCoordinates);
+                case TYPE_LINE:
+                    return createLineGeometry(entryCoordinates);
+                case TYPE_POLYGON:
+                    return createPolygonGeometry(entryCoordinates);
+                default:
+                    throw new IllegalStateException();
             }
-        } catch(Exception e) {
-            if(e instanceof SDLParseException) {
-                throw (SDLParseException)e;
+        } catch (Exception e) {
+            if (e instanceof SDLParseException) {
+                throw (SDLParseException) e;
             } else {
                 throw new SDLParseException(this, "Error creating geometry", e);
             }
         }
     }
-    
+
     private Geometry createPointGeometry(List<Coordinate> entryCoordinates) throws SDLParseException {
         /* A SDL point entry is always one point, no multipoints */
-        if(entryCoordinates.size() != 1) {
+        if (entryCoordinates.size() != 1) {
             throw new SDLParseException(this, "Point can have only one coordinate");
         }
-        //return geometryFactory.createMultiPoint(new Coordinate[]{entryCoordinates.get(0)});
         return geometryFactory.createPoint(entryCoordinates.get(0));
-    } 
+    }
 
     private Geometry createLineGeometry(List<Coordinate> entryCoordinates) throws SDLParseException {
         /* In SDL, a polyline entry may consist of multiple lines (polypolyline),
@@ -238,25 +246,24 @@ class SDLEntry {
 
         do {
             LineString lineString = createLineString(coordinatesIterator);
-            if(!lineString.isEmpty()) {
+            if (!lineString.isEmpty()) {
                 lineStrings.add(lineString);
             }
-        } while(coordinatesIterator.hasNext());
+        } while (coordinatesIterator.hasNext());
 
         Geometry g = null;
-        if (lineStrings.size()>1){
-            g = geometryFactory.createMultiLineString((LineString[])lineStrings.toArray(new LineString[] {}));
-        }
-        else if(lineStrings.size()==1){
+        if (lineStrings.size() > 1) {
+            g = geometryFactory.createMultiLineString((LineString[]) lineStrings.toArray(new LineString[]{}));
+        } else if (lineStrings.size() == 1) {
             g = geometryFactory.createLineString(lineStrings.get(0).getCoordinates());
-        }
-        else{
-            // TODO
-            System.out.println("FOUT! linestrings[] < 1 createLineGeometry");
+        } else {
+            log.error("error converting Line: linestrings[] < 1 createLineGeometry");
+//            g = geometryFactory.createMultiLineString(null); // niet gebruiken, empty geometry geeft problemen bij sommige datastores
+            g = null;
         }
         return g;
-    } 
-    
+    }
+
     /* Create a single polyline from a SDL entry which may contain multiple
      * polylines (polypolyline).
      * The iterator is advanced to the first coordinate of the next polyline or
@@ -267,26 +274,26 @@ class SDLEntry {
 
         Coordinate first = coordinatesIterator.next();
         vertices.add(first);
-        if(!coordinatesIterator.hasNext()) {
+        if (!coordinatesIterator.hasNext()) {
             addError("Polyline must have at least two coordinates");
-            return geometryFactory.createLineString((Coordinate[])null);
-        } 
+            return geometryFactory.createLineString((Coordinate[]) null);
+        }
         vertices.add(coordinatesIterator.next());
 
         /* Add points to coordinates list, except when next points equals
          * first point or there are no more points.
          */
-        while(coordinatesIterator.hasNext()) {
+        while (coordinatesIterator.hasNext()) {
             Coordinate c = coordinatesIterator.next();
-            if(c.equals(first)) {
+            if (c.equals(first)) {
                 /* end of polyline in a polypolyline entry */
                 break;
             }
             vertices.add(c);
         }
-        return geometryFactory.createLineString((Coordinate[])vertices.toArray(new Coordinate[] {}));
+        return geometryFactory.createLineString((Coordinate[]) vertices.toArray(new Coordinate[]{}));
     }
-    
+
     /**
      * Called when an error occurs but that error is constrained to a single
      * feature/subgeometry. Try to continue parsing features, but do set parseError
@@ -294,14 +301,14 @@ class SDLEntry {
      * @param msg
      */
     private void addError(String msg) {
-        if(!parseError) {
+        if (!parseError) {
             parseError = true;
             errorDescription = "entry starting line " + startingLineNumber + ": " + msg;
         } else {
             errorDescription += "; " + msg;
         }
     }
-    
+
     private Geometry createPolygonGeometry(List<Coordinate> entryCoordinates) throws SDLParseException {
         /* In practice, output from the SDF Loader does not follow the constraints
          * of the SDL file format very closely especially with polygons. Therefore
@@ -311,53 +318,53 @@ class SDLEntry {
          * The attribute "parseError" is set to true if an entry contains parsing
          * errors, and the "errorDescription" attribute set to the details.
          */
-        
+
         /* Note that this parser does not group polygons with the same key 
          * attribute into a multipolygon (only possible after parsing entire
          * file).
          */
-        
+
         final List<LinearRing> rings = new ArrayList<LinearRing>();
 
         int index = 0;
         final int size = entryCoordinates.size();
         do {
             List<Coordinate> vertices = new ArrayList<Coordinate>(size);
-            
+
             boolean closed = false;
-            while(index < size) {
+            while (index < size) {
                 Coordinate c = entryCoordinates.get(index++);
-                if(vertices.size() != 0 && c.equals(vertices.get(vertices.size()-1))) {
+                if (vertices.size() != 0 && c.equals(vertices.get(vertices.size() - 1))) {
                     /* ignore duplicate coordinate without setting error */
                     continue;
                 }
                 vertices.add(c);
-                
-                if(vertices.size() > 1 && c.equals(vertices.get(0))) {
+
+                if (vertices.size() > 1 && c.equals(vertices.get(0))) {
                     closed = true;
                     break;
                 }
             }
-            
-            if(!closed) { /* also end of entry */
-                if(rings.isEmpty()) {
+
+            if (!closed) { /* also end of entry */
+                if (rings.isEmpty()) {
                     addError("unclosed polygon -- empty entry");
                 } else {
                     addError("unclosed polygon -- entry has " + rings.size() + " valid polygons");
                 }
                 break;
             }
-            
+
             /* polygon must have minimum of 3 different vertices for a triangle,
              * but in the coordinate array the last vertex must be the same as 
              * the first to close it, so minimum of 4 vertices
              */
-            if(vertices.size() <= 3) {
+            if (vertices.size() <= 3) {
                 boolean endOfEntry = index == size;
                 boolean emptyEntry = rings.isEmpty();
-                String error = "polygon " + (rings.size()+1) + " has insufficient vertices";
-                if(endOfEntry) {
-                    if(emptyEntry) {
+                String error = "polygon " + (rings.size() + 1) + " has insufficient vertices";
+                if (endOfEntry) {
+                    if (emptyEntry) {
                         error += " -- empty entry";
                     } else {
                         error += " -- entry has " + rings.size() + " valid polygons";
@@ -365,29 +372,31 @@ class SDLEntry {
                 }
                 addError(error);
             } else {
-                rings.add(geometryFactory.createLinearRing(vertices.toArray(new Coordinate[] {})));
+                rings.add(geometryFactory.createLinearRing(vertices.toArray(new Coordinate[]{})));
             }
-        } while(index < size);
-        
+        } while (index < size);
+
         List<Polygon> polygons = foldHoles(rings);
         Geometry g = null;
-        if(polygons==null)return null;
-        if (polygons.size()>1){
-            g = geometryFactory.createMultiPolygon(GeometryFactory.toPolygonArray(polygons));      
+        if (polygons == null) {
+            return null;
         }
-        else if (polygons.size()==1){
+        if (polygons.size() > 1) {
+            g = geometryFactory.createMultiPolygon(GeometryFactory.toPolygonArray(polygons));
+        } else if (polygons.size() == 1) {
             LinearRing[] interiorRings = new LinearRing[polygons.get(0).getNumInteriorRing()];
             for (int i = 0; i < polygons.get(0).getNumInteriorRing(); i++) {
-                interiorRings[i] = (LinearRing)polygons.get(0).getInteriorRingN(i);
+                interiorRings[i] = (LinearRing) polygons.get(0).getInteriorRingN(i);
             }
-            g = geometryFactory.createPolygon((LinearRing)polygons.get(0).getExteriorRing(), interiorRings);      
-        }
-        else{
-            System.out.println("FOUT! polygons[] < 1 createPolygonGeometry");
+            g = geometryFactory.createPolygon((LinearRing) polygons.get(0).getExteriorRing(), interiorRings);
+        } else {
+            log.error("error converting Polygon: polygons[] < 1 createPolygonGeometry");
+//            g = geometryFactory.createMultiPolygon(null); // niet gebruiken, empty geometry geeft problemen bij sommige datastores
+            g = null; 
         }
         return g;
     }
-    
+
     /**
      * Convert a list of LinearRings to Polygons with holes. Uses the most naive
      * algorithm possible.
@@ -402,30 +411,30 @@ class SDLEntry {
          */
         List<Polygon> polygons = new ArrayList<Polygon>(rings.size());
         List<Boolean> ccwCache = new ArrayList<Boolean>(rings.size());
-        for(int i = 0; i < rings.size(); i++) {
+        for (int i = 0; i < rings.size(); i++) {
             polygons.add(geometryFactory.createPolygon(rings.get(i), null));
             ccwCache.add(null);
         }
-        
+
         int i = 0;
-      
-        while(i < polygons.size()) {
+
+        while (i < polygons.size()) {
             Polygon p = polygons.get(i);
-            if(p.getNumInteriorRing() == 0) {
+            if (p.getNumInteriorRing() == 0) {
                 /* search for a polygon that contains p from the top */
-                for(int j = 0; j < polygons.size(); j++) {
+                for (int j = 0; j < polygons.size(); j++) {
                     /* don't check if the polygon is within itself */
-                    if(j != i) {
-                        Polygon q = polygons.get(j);                    
+                    if (j != i) {
+                        Polygon q = polygons.get(j);
                         try {
-                            if(p.within(q) && (ccw(p,i,ccwCache) != ccw(q,j,ccwCache)) ) {
+                            if (p.within(q) && (ccw(p, i, ccwCache) != ccw(q, j, ccwCache))) {
                                 /* Recreate q with another hole */
-                                LinearRing[] qHoles = new LinearRing[q.getNumInteriorRing()+1];
-                                for(int k = 0; k < q.getNumInteriorRing(); k++) {
+                                LinearRing[] qHoles = new LinearRing[q.getNumInteriorRing() + 1];
+                                for (int k = 0; k < q.getNumInteriorRing(); k++) {
                                     qHoles[k] = (LinearRing) q.getInteriorRingN(k);
                                 }
-                                qHoles[qHoles.length-1] = (LinearRing)p.getExteriorRing();
-                                q = geometryFactory.createPolygon((LinearRing)q.getExteriorRing(), qHoles);
+                                qHoles[qHoles.length - 1] = (LinearRing) p.getExteriorRing();
+                                q = geometryFactory.createPolygon((LinearRing) q.getExteriorRing(), qHoles);
                                 polygons.set(j, q);
                                 polygons.remove(i);
                                 ccwCache.remove(i);
@@ -436,27 +445,27 @@ class SDLEntry {
                                  */
                                 break;
                             }
-                        } catch(TopologyException te) {
+                        } catch (TopologyException te) {
                             /* within() can throw this exception with "side-location conflict"
                              * message, for example these polygons:
                              * POLYGON ((209032.59375 552769.4375, 209031.75 552770.375, 209027.75 552767.125, 209025.78125 552769.375, 209026.734375 552770.625, 209027.8125 552771.625, 209029.5 552773, 209031.75 552770.375, 209032.59375 552769.4375))
                              * POLYGON ((209032.59375 552769.4375, 209031.75 552770.375, 209029.5 552773, 209028.71875 552773.8125, 209028.421875 552773.625, 209028.4375 552773.25, 209028.4375 552772.5, 209028.25 552772.0625, 209027.8125 552771.625, 209015.4375 552761.9375, 209000 552749.4375, 208988.5 552740.75, 208991.265625 552737.1875, 209008.171875 552750.4375, 209032.59375 552769.4375))
                              */
                             /* add error message and continue */
-                            addError(te.getMessage());                             
+                            addError(te.getMessage());
                         }
                     }
                 }
             }
             i++;
         }
-        
+
         return polygons;
     }
-    
+
     private static boolean ccw(Polygon p, int index, List<Boolean> ccwCacheArray) {
         Boolean cached = ccwCacheArray.get(index);
-        if(cached != null) {
+        if (cached != null) {
             return cached;
         }
         Boolean ccw = CGAlgorithms.isCCW(p.getExteriorRing().getCoordinates());
