@@ -97,7 +97,7 @@ public class SDLDataStore extends AbstractFileDataStore {
             try {
                 featureReader = new SDLFeatureReader(url, typeName, srs);
             } catch (SDLParseException e) {
-                throw new IOException("SDL parse exception", e);
+                throw new IOException("SDL parse exception" + e.getLocalizedMessage());
             }
         }
         return featureReader;

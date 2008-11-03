@@ -195,7 +195,7 @@ public class SDLFeatureReader implements FeatureReader {
                     });
             return f;
         } catch (SDLParseException ex) {
-            throw new IOException("SDL parse error", ex);
+            throw new IOException("SDL parse error" + ex.getLocalizedMessage());
         } catch (EOFException e) {
             return null;
         }
