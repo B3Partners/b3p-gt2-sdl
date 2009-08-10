@@ -17,18 +17,16 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import org.geotools.data.DataSourceException;
 import org.geotools.data.FeatureReader;
-import org.geotools.feature.AttributeType;
-import org.geotools.feature.AttributeTypeFactory;
-import org.geotools.feature.Feature;
-import org.geotools.feature.FeatureType;
-import org.geotools.feature.FeatureTypes;
-import org.geotools.feature.IllegalAttributeException;
-import org.geotools.feature.type.GeometricAttributeType;
 import org.geotools.referencing.ReferencingFactoryFinder;
 import org.opengis.referencing.crs.CRSFactory;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.apache.commons.io.input.CountingInputStream;
+import org.geotools.feature.IllegalAttributeException;
+import org.geotools.feature.simple.SimpleFeatureBuilder;
+import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.referencing.CRS;
+import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
 
 /**
  * @author Matthijs Laan, B3Partners
@@ -36,12 +34,13 @@ import org.geotools.referencing.CRS;
 public class SDLFeatureReader implements FeatureReader {
 
     private GeometryFactory gf;
-    private FeatureType ft;
+    private SimpleFeatureType ft;
     private CountingInputStream cis;
     private LineNumberReader lnr;
     private String version;
     private Map<String, String[]> metadata = new HashMap<String, String[]>();
     private static final int MARK_SIZE = 8 * 1024;
+    private int featureID = 0;
 
     public SDLFeatureReader(URL url, String typeName, String srs) throws IOException, SDLParseException {
 
@@ -132,25 +131,44 @@ public class SDLFeatureReader implements FeatureReader {
         }
 
         try {
-            GeometricAttributeType geometryType = new GeometricAttributeType("the_geom", Geometry.class, true, null, crs, null);
-            gf = geometryType.getGeometryFactory(); 
+
+            SimpleFeatureTypeBuilder ftb = new SimpleFeatureTypeBuilder();
+            ftb.setName(typeName);
+            ftb.setCRS(crs);
+
+            ftb.add("the_geom", Geometry.class);
+            ftb.add("name", String.class);
+            ftb.add("key", String.class);
+            ftb.add("urlLink", String.class);
+            ftb.add("entryLineNumber", Integer.class);
+            ftb.add("parseError", Integer.class);
+            ftb.add("error", String.class);
+
+            ft = ftb.buildFeatureType();
+
+            //GeometricAttributeType geometryType = new GeometricAttributeType("the_geom", Geometry.class, true, null, crs, null);
+            gf = new GeometryFactory();
+
+            /*
+            gf = geometryType.getGeometryFactory();
 
             ft = FeatureTypes.newFeatureType(
-                    new AttributeType[]{
-                        geometryType,
-                        AttributeTypeFactory.newAttributeType("name", String.class),
-                        AttributeTypeFactory.newAttributeType("key", String.class),
-                        AttributeTypeFactory.newAttributeType("urlLink", String.class),
-                        AttributeTypeFactory.newAttributeType("entryLineNumber", Integer.class),
-                        AttributeTypeFactory.newAttributeType("parseError", Integer.class),
-                        AttributeTypeFactory.newAttributeType("error", String.class)
-                    }, typeName);
+            new AttributeType[]{
+            geometryType,
+            AttributeTypeFactory.newAttributeType("name", String.class),
+            AttributeTypeFactory.newAttributeType("key", String.class),
+            AttributeTypeFactory.newAttributeType("urlLink", String.class),
+            AttributeTypeFactory.newAttributeType("entryLineNumber", Integer.class),
+            AttributeTypeFactory.newAttributeType("parseError", Integer.class),
+            AttributeTypeFactory.newAttributeType("error", String.class)
+            }, typeName);
+             */
         } catch (Exception e) {
-            throw new DataSourceException("Error creating FeatureType", e);
+            throw new DataSourceException("Error creating SimpleFeatureType", e);
         }
     }
 
-    public FeatureType getFeatureType() {
+    public SimpleFeatureType getFeatureType() {
         return ft;
     }
 
@@ -179,20 +197,21 @@ public class SDLFeatureReader implements FeatureReader {
         return false;
     }
 
-    public Feature next() throws IOException, IllegalAttributeException, NoSuchElementException {
+    public SimpleFeature next() throws IOException, IllegalAttributeException, NoSuchElementException {
         try {
             SDLEntry entry = new SDLEntry(lnr, gf);
             Geometry g = entry.getGeometry();
 
-            Feature f = ft.create(new Object[]{
+            SimpleFeature f = SimpleFeatureBuilder.build(ft, new Object[]{
                         g,
                         entry.getName(),
                         entry.getKey(),
                         entry.getUrlLink(),
                         new Integer(entry.getStartingLineNumber()),
-                        new Integer(entry.isParseError()?1:0),
+                        new Integer(entry.isParseError() ? 1 : 0),
                         entry.getErrorDescription()
-                    });
+                    }, Integer.toString(featureID++));
+
             return f;
         } catch (SDLParseException ex) {
             throw new IOException("SDL parse error" + ex.getLocalizedMessage());

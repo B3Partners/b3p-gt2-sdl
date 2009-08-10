@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.Map;
 import org.geotools.data.DataStore;
 import org.geotools.data.DataStoreFactorySpi;
-import org.geotools.data.DataStoreFactorySpi.Param;
 import org.geotools.data.FileDataStoreFactorySpi;
 import org.geotools.referencing.CRS;
 import org.opengis.referencing.FactoryException;

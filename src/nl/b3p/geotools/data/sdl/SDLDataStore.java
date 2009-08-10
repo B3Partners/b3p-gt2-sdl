@@ -9,7 +9,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.geotools.data.AbstractFileDataStore;
 import org.geotools.data.FeatureReader;
-import org.geotools.feature.FeatureType;
+import org.opengis.feature.simple.SimpleFeatureType;
+//import org.geotools.Feature.SimpleFeatureType;
 
 /**
  * DataStore for reading a SDL file produced by Autodesk SDF Loader which 
@@ -17,13 +18,13 @@ import org.geotools.feature.FeatureType;
  * The SDF component toolkit can read those but COM objects are perhaps a 
  * lesser evil than Runtime.exec()'ing the SDF Loader.
  * 
- * Note that a single SDL file can contain point, line and polygon features.
+ * Note that a single SDL file can contain point, line and polygon SimpleFeatures.
  * Although many files will only contain a single type, the parser can only 
  * determine this by looking through the entire file - which is not advisable in 
  * a streaming API. The same is true for a file containing only polygons or also 
  * multipolygons etc. 
  * 
- * Therefore always the same feature schema is used:
+ * Therefore always the same SimpleFeature schema is used:
  * the_geom_point: Point (SDL does not contains MultiPoints)
  * the_geom_line: MultiLineString (getNumGeometries() can be 1) 
  * the_geom_polygon: MultiPolygons (getNumGeometries() can be 1, can contain holes)
@@ -49,7 +50,7 @@ public class SDLDataStore extends AbstractFileDataStore {
     private static final Log log = LogFactory.getLog(SDLDataStore.class);
     private URL url;
     private String typeName;
-    private FeatureReader featureReader;
+    private FeatureReader FeatureReader;
     private String srs;
 
     public SDLDataStore(URL url, String srs) throws IOException {
@@ -78,13 +79,13 @@ public class SDLDataStore extends AbstractFileDataStore {
         }
     }
 
-    public FeatureType getSchema(String typeName) throws IOException {
+    public SimpleFeatureType getSchema(String typeName) throws IOException {
         /* only one type */
         return getSchema();
     }
 
-    public FeatureType getSchema() throws IOException {
-        return getFeatureReader().getFeatureType();
+    public SimpleFeatureType getSchema() throws IOException {
+        return (SimpleFeatureType)getFeatureReader().getFeatureType();
     }
 
     public FeatureReader getFeatureReader(String typeName) throws IOException {
@@ -93,13 +94,13 @@ public class SDLDataStore extends AbstractFileDataStore {
     }
 
     public FeatureReader getFeatureReader() throws IOException {
-        if (featureReader == null) {
+        if (FeatureReader == null) {
             try {
-                featureReader = new SDLFeatureReader(url, typeName, srs);
+                FeatureReader = new SDLFeatureReader(url, typeName, srs);
             } catch (SDLParseException e) {
                 throw new IOException("SDL parse exception" + e.getLocalizedMessage());
             }
         }
-        return featureReader;
+        return FeatureReader;
     }
 }
