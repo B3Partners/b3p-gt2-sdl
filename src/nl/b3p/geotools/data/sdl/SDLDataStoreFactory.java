@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.geotools.data.DataStore;
 import org.geotools.data.DataStoreFactorySpi;
+import org.geotools.data.FileDataStore;
 import org.geotools.data.FileDataStoreFactorySpi;
 import org.geotools.referencing.CRS;
 import org.opengis.referencing.FactoryException;
@@ -99,7 +100,7 @@ public class SDLDataStoreFactory implements FileDataStoreFactorySpi {
         return SDLDataStore.getURLTypeName(url);
     }
 
-    public DataStore createDataStore(URL url) throws IOException {
+    public FileDataStore createDataStore(URL url) throws IOException {
         Map params = new HashMap();
         params.put(PARAM_URL.key, url);
 
@@ -111,7 +112,7 @@ public class SDLDataStoreFactory implements FileDataStoreFactorySpi {
         }
     }
 
-    public DataStore createDataStore(Map params) throws IOException {
+    public FileDataStore createDataStore(Map params) throws IOException {
         if (!canProcess(params)) {
             throw new FileNotFoundException("SDL file not found: " + params);
         }
