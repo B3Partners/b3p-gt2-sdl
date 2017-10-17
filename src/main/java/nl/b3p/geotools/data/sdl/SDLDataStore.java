@@ -205,8 +205,8 @@ public class SDLDataStore implements FileDataStore {
     public void dispose() {
         try {
             this.FeatureReader.close();
-        } catch (IOException ex) {
-            // ignore
+        } catch (IOException | NullPointerException ex) {
+            log.debug("Mogelijk probleem met sluiten van featureReader", ex);
         }
         this.FeatureReader = null;
     }
